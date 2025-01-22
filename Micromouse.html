@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dynamic Maze with Moving Mouse</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+    #maze {
+      display: grid;
+      align-items: center;
+      justify-content: center;
+      margin: 20px auto;
+      gap: 2px;
+    }
+    button{
+        background-color: rgb(246, 246, 248);
+        border-radius: 30px;
+        padding: 3px;
+    }
+    button:hover{
+        box-shadow: 3px 3px 3px red;
+        padding: 5px;
+       
+    }
+    h1{
+        text-shadow: 3px 3px 3px rgb(180, 88, 88) ;
+    }
+    .cell {
+      width: 30px;
+      height: 30px;
+      border: 1px solid #f3ebeb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .empty { background-color: rgb(131, 162, 204); }
+    .obstacle { background-color: black; }
+    .start { background-color: green; color: white; }
+    .end { background-color: yellow; color: white; }
+    .path { background-color: blue; }
+    .mouse { background-color: red; color: white; }
+  </style>
+</head>
+<body>
+  <h1>MICROMOUSE SEARCHING TECHNIQUE</h1>
+  <div id="maze"></div>
+  <button onclick="generateMaze()">Generate Maze</button>
+  <button onclick="markStart()">Mark Start</button>
+  <button onclick="markEnd()">Mark End</button>
+  <button onclick="numberPath()">Number Path</button>
+  <button onclick="startMouse()">Start Mouse</button>
+  <script>
+    const n = 15; // Number of rows
+    const m = 15; // Number of columns
+    const mazeContainer = document.getElementById('maze');
+    let maze = [];
+    let startPoint = null;
+    let endPoint = null;
+
+    // Generate Maze
+    function generateMaze() {
+      mazeContainer.innerHTML = '';
+      maze = Array.from({ length: n }, () =>
+        Array.from({ length: m }, () => (Math.random() < 0.2 ? 1 : 0))
+      );
+      mazeContainer.style.gridTemplateRows = `repeat(${n}, 30px)`;
+      mazeContainer.style.gridTemplateColumns = `repeat(${m}, 30px)`;
+      maze.forEach((row, i) => {
+        row.forEach((cell, j) => {
+          const cellDiv = document.createElement('div');
+          cellDiv.classList.add('cell', cell === 1 ? 'obstacle' : 'empty');
+          cellDiv.id = `cell-${i}-${j}`;
+          mazeContainer.appendChild(cellDiv);
+        });
+      });
+    }
+
+    // Mark Start Point
+    function markStart() {
+      mazeContainer.onclick = (e) => {
+        const cell = e.target;
+        if (cell.classList.contains('cell') && cell.classList.contains('empty')) {
+          if (startPoint) {
+            document.getElementById(`cell-${startPoint[0]}-${startPoint[1]}`).classList.remove('start');
+          }
+          startPoint = cell.id.split('-').slice(1).map(Number);
+          cell.classList.add('start');
+          mazeContainer.onclick = null; // Disable further marking
+        }
+      };
+    }
+
+    // Mark End Point
+    function markEnd() {
+      mazeContainer.onclick = (e) => {
+        const cell = e.target;
+        if (cell.classList.contains('cell') && cell.classList.contains('empty')) {
+          if (endPoint) {
+            document.getElementById(`cell-${endPoint[0]}-${endPoint[1]}`).classList.remove('end');
+          }
+          endPoint = cell.id.split('-').slice(1).map(Number);
+          cell.classList.add('end');
+          mazeContainer.onclick = null; // Disable further marking
+        }
+      };
+    }
+
+    // Number Path using BFS
+    function numberPath() {
+      if (!startPoint || !endPoint) {
+        alert('Please mark the start and end points first!');
+        return;
+      }
+      const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+      const queue = [[...startPoint, 0]];
+      const visited = new Set();
+      visited.add(startPoint.join('-'));
+
+      while (queue.length > 0) {
+        const [x, y, steps] = queue.shift();
+        const cell = document.getElementById(`cell-${x}-${y}`);
+        if (!cell.classList.contains('start') && !cell.classList.contains('end')) {
+          cell.textContent = steps;
+        }
+        if (x === endPoint[0] && y === endPoint[1]) break;
+
+        for (const [dx, dy] of directions) {
+          const nx = x + dx, ny = y + dy;
+          if (
+            nx >= 0 && ny >= 0 && nx < n && ny < m &&
+            maze[nx][ny] === 0 && !visited.has(`${nx}-${ny}`)
+          ) {
+            queue.push([nx, ny, steps + 1]);
+            visited.add(`${nx}-${ny}`);
+          }
+        }
+      }
+    }
+
+    // Move Mouse from Start to End
+    function startMouse() {
+      if (!startPoint || !endPoint) {
+        alert('Please mark the start and end points first!');
+        return;
+      }
+      const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+      const queue = [[...startPoint]];
+      const parent = {};
+      parent[startPoint.join('-')] = null;
+
+      while (queue.length > 0) {
+        const [x, y] = queue.shift();
+        if (x === endPoint[0] && y === endPoint[1]) break;
+
+        for (const [dx, dy] of directions) {
+          const nx = x + dx, ny = y + dy;
+          if (
+            nx >= 0 && ny >= 0 && nx < n && ny < m &&
+            maze[nx][ny] === 0 && !parent.hasOwnProperty(`${nx}-${ny}`)
+          ) {
+            queue.push([nx, ny]);
+            parent[`${nx}-${ny}`] = [x, y];
+          }
+        }
+      }
+
+      // Reconstruct Path
+      let path = [];
+      let current = endPoint;
+      while (current) {
+        path.push(current);
+        current = parent[current.join('-')];
+      }
+      path.reverse();
+
+      // Animate Mouse Movement
+      let step = 0;
+      const interval = setInterval(() => {
+        if (step < path.length) {
+          const [x, y] = path[step];
+          document.querySelectorAll('.mouse').forEach(el => el.classList.remove('mouse'));
+          const cell = document.getElementById(`cell-${x}-${y}`);
+          if (!cell.classList.contains('start') && !cell.classList.contains('end')) {
+            cell.classList.add('mouse');
+          }
+          step++;
+        } else {
+          clearInterval(interval);
+        }
+      }, 500);
+    }
+  </script>
+</body>
+</html>
+
